@@ -25,14 +25,14 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: Shirobot.Plugin.RssSubscriber
+        working-directory: Shirobot.Plugin.KotoSub
 
     steps:
       - name: Checkout plugin
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
-          path: Shirobot.Plugin.RssSubscriber
+          path: Shirobot.Plugin.KotoSub
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -50,31 +50,31 @@ jobs:
             throw "Release tag must use vMAJOR.MINOR.PATCH format: $env:RELEASE_TAG"
           }
 
-          $program = Get-Content .\Shirobot.Plugin.RssSubscriber\Program.cs -Raw
+          $program = Get-Content .\Shirobot.Plugin.KotoSub\KotoSubPlugin.cs -Raw
           $pluginMatch = [regex]::Match($program, '(?m)^\s*Version\s*=\s*"(?<version>\d+\.\d+\.\d+)"')
           if (-not $pluginMatch.Success -or $pluginMatch.Groups['version'].Value -ne $tagMatch.Groups['version'].Value) {
-            throw "Release tag $env:RELEASE_TAG does not match the plugin version in Program.cs."
+            throw "Release tag $env:RELEASE_TAG does not match the plugin version in KotoSubPlugin.cs."
           }
 
       - name: Restore
-        run: dotnet restore .\tests\Shirobot.Plugin.RssSubscriber.Tests\Shirobot.Plugin.RssSubscriber.Tests.csproj --disable-parallel -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
+        run: dotnet restore .\tests\Shirobot.Plugin.KotoSub.Tests\Shirobot.Plugin.KotoSub.Tests.csproj --disable-parallel -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
 
       - name: Test
-        run: dotnet test .\tests\Shirobot.Plugin.RssSubscriber.Tests\Shirobot.Plugin.RssSubscriber.Tests.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
+        run: dotnet test .\tests\Shirobot.Plugin.KotoSub.Tests\Shirobot.Plugin.KotoSub.Tests.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
 
       - name: Publish plugin
-        run: dotnet publish .\Shirobot.Plugin.RssSubscriber\Shirobot.Plugin.RssSubscriber.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts= --output release/publish -v:minimal
+        run: dotnet publish .\Shirobot.Plugin.KotoSub\Shirobot.Plugin.KotoSub.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts= --output release/publish -v:minimal
 
       - name: Package release
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $publishRoot = Join-Path $PWD "release/publish"
-          $packageRoot = Join-Path $PWD "release/package/Shirobot.Plugin.RssSubscriber"
+          $packageRoot = Join-Path $PWD "release/package/Shirobot.Plugin.KotoSub"
           $assetsRoot = Join-Path $PWD "release/assets"
           New-Item -ItemType Directory -Force -Path $packageRoot, $assetsRoot | Out-Null
 
-          foreach ($name in @("Shirobot.Plugin.RssSubscriber.dll", "config.toml")) {
+          foreach ($name in @("Shirobot.Plugin.KotoSub.dll", "config.toml")) {
             $source = Join-Path $publishRoot $name
             if (-not (Test-Path $source)) {
               throw "Missing expected package file: $name"
@@ -89,16 +89,16 @@ jobs:
           }
 
           Copy-Item -LiteralPath README.md, LICENSE -Destination $packageRoot
-          $expectedFiles = @("Shirobot.Plugin.RssSubscriber.dll", "config.toml", "README.md", "LICENSE")
+          $expectedFiles = @("Shirobot.Plugin.KotoSub.dll", "config.toml", "README.md", "LICENSE")
           $packageFiles = @(Get-ChildItem $packageRoot -File | Select-Object -ExpandProperty Name | Sort-Object)
           $expectedFiles = @($expectedFiles | Sort-Object)
           if (($packageFiles -join "|") -ne ($expectedFiles -join "|")) {
             throw "Release package has unexpected files: $($packageFiles -join ', ')"
           }
 
-          Copy-Item -LiteralPath (Join-Path $packageRoot "Shirobot.Plugin.RssSubscriber.dll") -Destination $assetsRoot
+          Copy-Item -LiteralPath (Join-Path $packageRoot "Shirobot.Plugin.KotoSub.dll") -Destination $assetsRoot
           Copy-Item -LiteralPath (Join-Path $packageRoot "config.toml") -Destination $assetsRoot
-          $zipPath = Join-Path $PWD "release/Shirobot.Plugin.RssSubscriber.zip"
+          $zipPath = Join-Path $PWD "release/Shirobot.Plugin.KotoSub.zip"
           Compress-Archive -Path $packageRoot -DestinationPath $zipPath -Force
           if ((Get-Item $zipPath).Length -gt 99MB) {
             throw "Marketplace packages must be smaller than 100 MiB."
@@ -111,6 +111,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
-            Shirobot.Plugin.RssSubscriber/release/Shirobot.Plugin.RssSubscriber.zip
-            Shirobot.Plugin.RssSubscriber/release/assets/Shirobot.Plugin.RssSubscriber.dll
-            Shirobot.Plugin.RssSubscriber/release/assets/config.toml
+            Shirobot.Plugin.KotoSub/release/Shirobot.Plugin.KotoSub.zip
+            Shirobot.Plugin.KotoSub/release/assets/Shirobot.Plugin.KotoSub.dll
+            Shirobot.Plugin.KotoSub/release/assets/config.toml

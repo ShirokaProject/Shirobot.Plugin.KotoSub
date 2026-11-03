@@ -16,17 +16,17 @@ concurrency:
 
 jobs:
   build:
-    name: Build RSS Subscriber
+    name: Build KotoSub
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: Shirobot.Plugin.RssSubscriber
+        working-directory: Shirobot.Plugin.KotoSub
 
     steps:
       - name: Checkout plugin
         uses: actions/checkout@v4
         with:
-          path: Shirobot.Plugin.RssSubscriber
+          path: Shirobot.Plugin.KotoSub
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -34,13 +34,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore .\tests\Shirobot.Plugin.RssSubscriber.Tests\Shirobot.Plugin.RssSubscriber.Tests.csproj --disable-parallel -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
+        run: dotnet restore .\tests\Shirobot.Plugin.KotoSub.Tests\Shirobot.Plugin.KotoSub.Tests.csproj --disable-parallel -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
 
       - name: Test
-        run: dotnet test .\tests\Shirobot.Plugin.RssSubscriber.Tests\Shirobot.Plugin.RssSubscriber.Tests.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
+        run: dotnet test .\tests\Shirobot.Plugin.KotoSub.Tests\Shirobot.Plugin.KotoSub.Tests.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts=
 
       - name: Publish plugin
-        run: dotnet publish .\Shirobot.Plugin.RssSubscriber\Shirobot.Plugin.RssSubscriber.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts= --output artifacts/publish -v:minimal
+        run: dotnet publish .\Shirobot.Plugin.KotoSub\Shirobot.Plugin.KotoSub.csproj --configuration Release --no-restore -m:1 -p:BuildInParallel=false -p:UsedAvaloniaProducts= --output artifacts/publish -v:minimal
 
       - name: Verify package layout
         shell: pwsh
@@ -50,7 +50,7 @@ jobs:
           $packageRoot = Join-Path $PWD "artifacts/plugin"
           New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
 
-          foreach ($name in @("Shirobot.Plugin.RssSubscriber.dll", "config.toml")) {
+          foreach ($name in @("Shirobot.Plugin.KotoSub.dll", "config.toml")) {
             $source = Join-Path $publishRoot $name
             if (-not (Test-Path $source)) {
               throw "Missing expected package file: $name"
@@ -72,6 +72,6 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Shirobot.Plugin.RssSubscriber
+          name: Shirobot.Plugin.KotoSub
           if-no-files-found: error
-          path: Shirobot.Plugin.RssSubscriber/artifacts/plugin/*
+          path: Shirobot.Plugin.KotoSub/artifacts/plugin/*
