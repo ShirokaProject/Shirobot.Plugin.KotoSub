@@ -10,7 +10,7 @@ namespace Shirobot.Plugin.KotoSub;
 [BotPlugin(
     "Shirobot.Plugin.KotoSub",
     Name = "KotoSub",
-    Version = "0.3.0",
+    Version = "0.3.1",
     Description = "订阅推送插件，支持 RSS / Atom 等订阅源。",
     Author = "PVPGOOD",
     GithubRepo = "ShirokaProject/Shirobot.Plugin.KotoSub",
