@@ -13,7 +13,7 @@ namespace Shirobot.Plugin.KotoSub;
     Version = "0.3.0",
     Description = "订阅推送插件，支持 RSS / Atom 等订阅源。",
     Author = "PVPGOOD",
-    GithubRepo = "ShirokaProject/Shirobot.Plugin.RssSubscriber",
+    GithubRepo = "ShirokaProject/Shirobot.Plugin.KotoSub",
     Category = PluginCategory.Integration,
     SharedAssemblies = "ShiroBot.Model.QQ")]
 public sealed class KotoSubPlugin : PluginBase<KotoSubConfig>

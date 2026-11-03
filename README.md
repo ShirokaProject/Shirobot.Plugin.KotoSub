@@ -14,8 +14,8 @@ Bilibili、X、GitHub、Gitea、WordPress 有专属卡片。
 
 感谢每一位为本项目贡献代码、反馈问题的朋友。
 
-<a href="https://github.com/ShirokaProject/Shirobot.Plugin.RssSubscriber/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=ShirokaProject/Shirobot.Plugin.RssSubscriber" alt="贡献者" />
+<a href="https://github.com/ShirokaProject/Shirobot.Plugin.KotoSub/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ShirokaProject/Shirobot.Plugin.KotoSub" alt="贡献者" />
 </a>
 
 ## 协议
