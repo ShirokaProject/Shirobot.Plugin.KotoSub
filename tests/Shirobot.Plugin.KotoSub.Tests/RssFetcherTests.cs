@@ -1,10 +1,8 @@
-using System.Net;
 using System.Net.Http.Headers;
-using Shirobot.Plugin.RssSubscriber.Config;
-using Shirobot.Plugin.RssSubscriber.Feeds;
+using System.Net;
 using Xunit;
 
-namespace Shirobot.Plugin.RssSubscriber.Tests;
+namespace Shirobot.Plugin.KotoSub.Tests;
 
 public sealed class RssFetcherTests
 {
@@ -22,8 +20,8 @@ public sealed class RssFetcherTests
                 Headers = { ETag = new EntityTagHeaderValue("\"version-2\"") }
             };
         })) { Timeout = Timeout.InfiniteTimeSpan };
-        var config = new RssPluginConfig { AllowPrivateUrls = true };
-        var fetcher = new FeedFetcher(http, () => config);
+        var config = new KotoSubConfig { AllowPrivateUrls = true };
+        var fetcher = new RssFetcher(http, () => config);
         var modified = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
 
         var result = await fetcher.FetchAsync(
@@ -48,8 +46,8 @@ public sealed class RssFetcherTests
                 Headers = { Location = new Uri("http://127.0.0.1/private") }
             };
         })) { Timeout = Timeout.InfiniteTimeSpan };
-        var config = new RssPluginConfig { AllowPrivateUrls = false };
-        var fetcher = new FeedFetcher(http, () => config);
+        var config = new KotoSubConfig { AllowPrivateUrls = false };
+        var fetcher = new RssFetcher(http, () => config);
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => fetcher.FetchAsync("https://8.8.8.8/feed", CancellationToken.None));
@@ -75,8 +73,8 @@ public sealed class RssFetcherTests
                     "<rss><channel><item><guid>one</guid><title>One</title><link>article</link></item></channel></rss>")
             };
         })) { Timeout = Timeout.InfiniteTimeSpan };
-        var config = new RssPluginConfig { AllowPrivateUrls = true };
-        var fetcher = new FeedFetcher(http, () => config);
+        var config = new KotoSubConfig { AllowPrivateUrls = true };
+        var fetcher = new RssFetcher(http, () => config);
 
         var result = await fetcher.FetchAsync("https://example.test/feed", CancellationToken.None);
 

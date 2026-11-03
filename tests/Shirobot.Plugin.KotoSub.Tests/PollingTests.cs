@@ -1,21 +1,15 @@
 using System.Net;
-using Shirobot.Plugin.RssSubscriber.Config;
-using Shirobot.Plugin.RssSubscriber.Feeds;
-using Shirobot.Plugin.RssSubscriber.Presentation;
-using Shirobot.Plugin.RssSubscriber.Scheduler;
-using Shirobot.Plugin.RssSubscriber.Storage;
-using Shirobot.Plugin.RssSubscriber.Subscriptions;
 using Xunit;
 
-namespace Shirobot.Plugin.RssSubscriber.Tests;
+namespace Shirobot.Plugin.KotoSub.Tests;
 
-public sealed class RssStartupTests
+public sealed class PollingTests
 {
     [Fact]
     public void FailureBackoffNeverPollsFasterThanNormalInterval()
     {
         var feed = new FeedSource { ConsecutiveFailures = 1 };
-        var config = new RssPluginConfig
+        var config = new KotoSubConfig
         {
             DefaultIntervalSeconds = 60,
             MinIntervalSeconds = 5,
@@ -34,7 +28,7 @@ public sealed class RssStartupTests
         Directory.CreateDirectory(directory);
         try
         {
-            var state = new RssState
+            var state = new SubState
             {
                 Feeds = new Dictionary<string, PersistentFeed>
                 {
@@ -45,26 +39,21 @@ public sealed class RssStartupTests
                         LastFetchAt = DateTimeOffset.UtcNow.AddHours(-2)
                     }
                 },
-                GroupSubs = new Dictionary<string, List<string>>
+                GroupSubs = new Dictionary<string, Dictionary<string, string>>
                 {
-                    ["qq-official|group-openid"] = ["news"]
+                    ["qq-official|group-openid"] = new() { ["news"] = "news" }
                 }
             };
-            var feeds = new FeedRegistry();
-            feeds.LoadFrom(state.Feeds);
-            var subscriptions = new SubscriptionRegistry();
-            subscriptions.LoadFrom(state.GroupSubs, state.FriendSubs);
-            var config = new RssPluginConfig
+            var config = new KotoSubConfig
             {
                 AllowPrivateUrls = true, MinIntervalSeconds = 1,
                 DefaultIntervalSeconds = 1, BackoffMaxSeconds = 2
             };
             using var http = new HttpClient(new FeedHandler(failFirstFetch));
-            var fetcher = new FeedFetcher(http, () => config);
-            var dispatcher = new RssDispatcher(null!, () => config, new ImageEmbedder(http));
-            new RssStateStore(directory).SaveSync(state);
-            using var scheduler = new RssPollScheduler(feeds, subscriptions, fetcher, dispatcher,
-                new RssStateStore(directory), () => config, state);
+            new StateStore(directory).SaveSync(state);
+            using var app = TestApp.Create(directory, state, config, http);
+            var feeds = app.Feeds;
+            var scheduler = app.Poll;
 
             scheduler.Start();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(7));
@@ -75,7 +64,7 @@ public sealed class RssStartupTests
             Assert.True(feeds.TryGet("news", out var feed));
             Assert.Contains("new-item", feed.LastSeenGuids);
             Assert.Equal(0, feed.ConsecutiveFailures);
-            var saved = new RssStateStore(directory).Load();
+            var saved = new StateStore(directory).Load();
             Assert.Contains("new-item", saved.Feeds["news"].LastSeenGuids);
         }
         finally
@@ -91,17 +80,14 @@ public sealed class RssStartupTests
         Directory.CreateDirectory(directory);
         try
         {
-            var state = new RssState
+            var state = new SubState
             {
                 Feeds = new Dictionary<string, PersistentFeed>
                 {
                     ["slow"] = new() { Url = "https://example.test/slow" }
                 }
             };
-            var feeds = new FeedRegistry();
-            feeds.LoadFrom(state.Feeds);
-            var subscriptions = new SubscriptionRegistry();
-            var config = new RssPluginConfig
+            var config = new KotoSubConfig
             {
                 AllowPrivateUrls = true,
                 RequestTimeoutSeconds = 5,
@@ -109,11 +95,10 @@ public sealed class RssStartupTests
                 DefaultIntervalSeconds = 30
             };
             using var http = new HttpClient(new SlowFeedHandler()) { Timeout = Timeout.InfiniteTimeSpan };
-            var fetcher = new FeedFetcher(http, () => config);
-            var dispatcher = new RssDispatcher(null!, () => config, new ImageEmbedder(http));
-            new RssStateStore(directory).SaveSync(state);
-            using var scheduler = new RssPollScheduler(feeds, subscriptions, fetcher, dispatcher,
-                new RssStateStore(directory), () => config, state);
+            new StateStore(directory).SaveSync(state);
+            using var app = TestApp.Create(directory, state, config, http);
+            var feeds = app.Feeds;
+            var scheduler = app.Poll;
 
             scheduler.Start();
             using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(9));
@@ -124,7 +109,7 @@ public sealed class RssStartupTests
             Assert.True(feeds.TryGet("slow", out var feed));
             Assert.Equal(1, feed.ConsecutiveFailures);
             Assert.NotNull(feed.LastFetchAt);
-            Assert.Equal(1, new RssStateStore(directory).Load().Feeds["slow"].ConsecutiveFailures);
+            Assert.Equal(1, new StateStore(directory).Load().Feeds["slow"].ConsecutiveFailures);
         }
         finally
         {
@@ -146,11 +131,12 @@ public sealed class RssStartupTests
         };
 
         Assert.True(feeds.TryAddInitialized("news", "https://example.test/rss", "News", "owner",
-            items, 2, out var feed, added => subscriptions.Add(subscriber, added.Id)));
+            items, 2, out var feed, added => subscriptions.Add(subscriber, "news", added.Id)));
         Assert.Equal(["middle", "newest"], feed.LastSeenGuids);
         Assert.NotNull(feed.LastFetchAt);
         Assert.Equal("News", feed.DisplayName);
-        Assert.True(subscriptions.Contains(subscriber, "news"));
+        Assert.True(subscriptions.TryGetFeed(subscriber, "news", out var subscribedFeed));
+        Assert.Equal("news", subscribedFeed);
         Assert.False(feeds.TryAddInitialized("another", "https://example.test/rss", null, "owner",
             items, 2, out var reused));
         Assert.Same(feed, reused);
@@ -176,7 +162,7 @@ public sealed class RssStartupTests
         Directory.CreateDirectory(directory);
         try
         {
-            var state = new RssState
+            var state = new SubState
             {
                 Feeds = new Dictionary<string, PersistentFeed>
                 {
@@ -184,20 +170,16 @@ public sealed class RssStartupTests
                     ["fast"] = new() { Url = "https://example.test/fast" }
                 }
             };
-            var feeds = new FeedRegistry();
-            feeds.LoadFrom(state.Feeds);
-            var subscriptions = new SubscriptionRegistry();
-            var config = new RssPluginConfig
+            var config = new KotoSubConfig
             {
                 AllowPrivateUrls = true, RequestTimeoutSeconds = 5,
                 MinIntervalSeconds = 1, DefaultIntervalSeconds = 1
             };
             using var http = new HttpClient(new MixedSpeedFeedHandler()) { Timeout = Timeout.InfiniteTimeSpan };
-            var fetcher = new FeedFetcher(http, () => config);
-            var dispatcher = new RssDispatcher(null!, () => config, new ImageEmbedder(http));
-            new RssStateStore(directory).SaveSync(state);
-            using var scheduler = new RssPollScheduler(feeds, subscriptions, fetcher, dispatcher,
-                new RssStateStore(directory), () => config, state);
+            new StateStore(directory).SaveSync(state);
+            using var app = TestApp.Create(directory, state, config, http);
+            var feeds = app.Feeds;
+            var scheduler = app.Poll;
 
             scheduler.Start();
             using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(4));
@@ -221,7 +203,7 @@ public sealed class RssStartupTests
         Directory.CreateDirectory(directory);
         try
         {
-            var state = new RssState
+            var state = new SubState
             {
                 Feeds = new Dictionary<string, PersistentFeed>
                 {
@@ -235,22 +217,18 @@ public sealed class RssStartupTests
                     }
                 }
             };
-            var feeds = new FeedRegistry();
-            feeds.LoadFrom(state.Feeds);
-            var subscriptions = new SubscriptionRegistry();
-            var config = new RssPluginConfig
+            var config = new KotoSubConfig
             {
                 AllowPrivateUrls = true, MinIntervalSeconds = 1,
                 DefaultIntervalSeconds = 1, BackoffMaxSeconds = 2
             };
             var handler = new NotModifiedHandler();
             using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
-            var fetcher = new FeedFetcher(http, () => config);
-            var dispatcher = new RssDispatcher(null!, () => config, new ImageEmbedder(http));
-            new RssStateStore(directory).SaveSync(state);
-            using var scheduler = new RssPollScheduler(feeds, subscriptions, fetcher, dispatcher,
-                new RssStateStore(directory), () => config, state);
-            scheduler.ResetStartupBaselines([]);
+            new StateStore(directory).SaveSync(state);
+            using var app = TestApp.Create(directory, state, config, http);
+            var feeds = app.Feeds;
+            var scheduler = app.Poll;
+            app.Poll.Reset(new(), []);
 
             scheduler.Start();
             using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(4));
@@ -262,7 +240,7 @@ public sealed class RssStartupTests
             Assert.True(feeds.TryGet("news", out var feed));
             Assert.Equal(["old"], feed.LastSeenGuids);
             Assert.Equal("\"v2\"", feed.ETag);
-            Assert.Equal(0, new RssStateStore(directory).Load().Feeds["news"].ConsecutiveFailures);
+            Assert.Equal(0, new StateStore(directory).Load().Feeds["news"].ConsecutiveFailures);
         }
         finally
         {
