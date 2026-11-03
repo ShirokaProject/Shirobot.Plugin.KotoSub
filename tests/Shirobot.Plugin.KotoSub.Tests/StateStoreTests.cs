@@ -48,7 +48,8 @@ public sealed class StateStoreTests
             Assert.Contains("groupAliases", subscriptionsJson);
             Assert.DoesNotContain("lastSeen", subscriptionsJson);
             Assert.DoesNotContain("displayName", subscriptionsJson);
-            Assert.Contains("lastSeen", runtimeJson);
+            Assert.Contains("seenUpdateIds", runtimeJson);
+            Assert.DoesNotContain("lastSeen", runtimeJson);
             Assert.Contains("displayName", runtimeJson);
             Assert.DoesNotContain("groupSubs", runtimeJson);
             Assert.DoesNotContain("https://example.test/rss", runtimeJson);

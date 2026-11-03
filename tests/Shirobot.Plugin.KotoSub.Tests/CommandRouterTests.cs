@@ -34,7 +34,7 @@ public sealed class CommandRouterTests : IDisposable
 
         foreach (var usage in new[] { "add <url> [别名]", "remove <别名>", "rename <旧别名> <新别名>",
                      "latest <别名> [tag] [n=N]", "test <别名>", "list", "status", "config [key] [value]",
-                     "interval <别名> <sec>", "reload", "feeds" })
+                     "interval <别名> <sec>", "reload", "targets" })
             Assert.Contains("#sub " + usage, help);
         Assert.Contains("（群管理员/Bot 主人）", help);
         Assert.Contains("（Bot 主人）", help);
