@@ -8,7 +8,7 @@ public sealed class PollingTests
     [Fact]
     public void FailureBackoffNeverPollsFasterThanNormalInterval()
     {
-        var feed = new FeedSource { ConsecutiveFailures = 1 };
+        var feed = new SubscriptionTarget { ConsecutiveFailures = 1 };
         var config = new KotoSubConfig
         {
             DefaultIntervalSeconds = 60,
@@ -30,13 +30,13 @@ public sealed class PollingTests
         {
             var state = new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
                     ["news"] = new()
                     {
-                        Url = "https://example.test/rss",
-                        LastSeenGuids = ["old-item"],
-                        LastFetchAt = DateTimeOffset.UtcNow.AddHours(-2)
+                        Key = "https://example.test/rss",
+                        SeenUpdateIds = ["old-item"],
+                        LastCheckedAt = DateTimeOffset.UtcNow.AddHours(-2)
                     }
                 },
                 GroupSubs = new Dictionary<string, Dictionary<string, string>>
@@ -52,20 +52,20 @@ public sealed class PollingTests
             using var http = new HttpClient(new FeedHandler(failFirstFetch));
             new StateStore(directory).SaveSync(state);
             using var app = TestApp.Create(directory, state, config, http);
-            var feeds = app.Feeds;
+            var feeds = app.Targets;
             var scheduler = app.Poll;
 
             scheduler.Start();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(7));
-            while (!feeds.TryGet("news", out var currentFeed) || !currentFeed.LastSeenGuids.Contains("new-item"))
+            while (!feeds.TryGet("news", out var currentFeed) || !currentFeed.SeenUpdateIds.Contains("new-item"))
                 await Task.Delay(25, timeout.Token);
             Assert.True(await scheduler.StopAsync());
 
             Assert.True(feeds.TryGet("news", out var feed));
-            Assert.Contains("new-item", feed.LastSeenGuids);
+            Assert.Contains("new-item", feed.SeenUpdateIds);
             Assert.Equal(0, feed.ConsecutiveFailures);
             var saved = new StateStore(directory).Load();
-            Assert.Contains("new-item", saved.Feeds["news"].LastSeenGuids);
+            Assert.Contains("new-item", saved.Targets["news"].SeenUpdateIds);
         }
         finally
         {
@@ -82,9 +82,9 @@ public sealed class PollingTests
         {
             var state = new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
-                    ["slow"] = new() { Url = "https://example.test/slow" }
+                    ["slow"] = new() { Key = "https://example.test/slow" }
                 }
             };
             var config = new KotoSubConfig
@@ -97,7 +97,7 @@ public sealed class PollingTests
             using var http = new HttpClient(new SlowFeedHandler()) { Timeout = Timeout.InfiniteTimeSpan };
             new StateStore(directory).SaveSync(state);
             using var app = TestApp.Create(directory, state, config, http);
-            var feeds = app.Feeds;
+            var feeds = app.Targets;
             var scheduler = app.Poll;
 
             scheduler.Start();
@@ -108,8 +108,8 @@ public sealed class PollingTests
 
             Assert.True(feeds.TryGet("slow", out var feed));
             Assert.Equal(1, feed.ConsecutiveFailures);
-            Assert.NotNull(feed.LastFetchAt);
-            Assert.Equal(1, new StateStore(directory).Load().Feeds["slow"].ConsecutiveFailures);
+            Assert.NotNull(feed.LastCheckedAt);
+            Assert.Equal(1, new StateStore(directory).Load().Targets["slow"].ConsecutiveFailures);
         }
         finally
         {
@@ -120,24 +120,24 @@ public sealed class PollingTests
     [Fact]
     public void NewFeedIsPublishedWithItsBaselineAlreadySet()
     {
-        var feeds = new FeedRegistry();
+        var feeds = new TargetRegistry();
         var subscriptions = new SubscriptionRegistry();
         var subscriber = SubscriberKey.Group("qq", "123");
         var items = new[]
         {
-            new FeedItem("newest", "Newest", "", "", null, [], null),
-            new FeedItem("middle", "Middle", "", "", null, [], null),
-            new FeedItem("oldest", "Oldest", "", "", null, [], null)
+            new UpdateEvent("newest", "Newest", "", "", null, [], null),
+            new UpdateEvent("middle", "Middle", "", "", null, [], null),
+            new UpdateEvent("oldest", "Oldest", "", "", null, [], null)
         };
 
-        Assert.True(feeds.TryAddInitialized("news", "https://example.test/rss", "News", "owner",
+        Assert.True(feeds.TryAddInitialized("news", "rss", "https://example.test/rss", "News", "owner",
             items, 2, out var feed, added => subscriptions.Add(subscriber, "news", added.Id)));
-        Assert.Equal(["middle", "newest"], feed.LastSeenGuids);
-        Assert.NotNull(feed.LastFetchAt);
+        Assert.Equal(["middle", "newest"], feed.SeenUpdateIds);
+        Assert.NotNull(feed.LastCheckedAt);
         Assert.Equal("News", feed.DisplayName);
         Assert.True(subscriptions.TryGetFeed(subscriber, "news", out var subscribedFeed));
         Assert.Equal("news", subscribedFeed);
-        Assert.False(feeds.TryAddInitialized("another", "https://example.test/rss", null, "owner",
+        Assert.False(feeds.TryAddInitialized("another", "rss", "https://example.test/rss", null, "owner",
             items, 2, out var reused));
         Assert.Same(feed, reused);
         Assert.Single(feeds.All());
@@ -146,13 +146,13 @@ public sealed class PollingTests
     [Fact]
     public void FeedUrlsKeepCaseSensitivePathsAndQueriesDistinct()
     {
-        var feeds = new FeedRegistry();
-        Assert.True(feeds.TryAddInitialized("upper", "https://EXAMPLE.test/Feed?type=A", null,
+        var feeds = new TargetRegistry();
+        Assert.True(feeds.TryAddInitialized("upper", "rss", "https://EXAMPLE.test/Feed?type=A", null,
             "owner", [], 100, out _));
 
-        Assert.NotNull(feeds.FindByUrl("https://example.TEST/Feed?type=A"));
-        Assert.Null(feeds.FindByUrl("https://example.test/feed?type=A"));
-        Assert.Null(feeds.FindByUrl("https://example.test/Feed?type=a"));
+        Assert.NotNull(feeds.Find("rss", "https://example.TEST/Feed?type=A"));
+        Assert.Null(feeds.Find("rss", "https://example.test/feed?type=A"));
+        Assert.Null(feeds.Find("rss", "https://example.test/Feed?type=a"));
     }
 
     [Fact]
@@ -164,10 +164,10 @@ public sealed class PollingTests
         {
             var state = new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
-                    ["slow"] = new() { Url = "https://example.test/slow" },
-                    ["fast"] = new() { Url = "https://example.test/fast" }
+                    ["slow"] = new() { Key = "https://example.test/slow" },
+                    ["fast"] = new() { Key = "https://example.test/fast" }
                 }
             };
             var config = new KotoSubConfig
@@ -178,17 +178,17 @@ public sealed class PollingTests
             using var http = new HttpClient(new MixedSpeedFeedHandler()) { Timeout = Timeout.InfiniteTimeSpan };
             new StateStore(directory).SaveSync(state);
             using var app = TestApp.Create(directory, state, config, http);
-            var feeds = app.Feeds;
+            var feeds = app.Targets;
             var scheduler = app.Poll;
 
             scheduler.Start();
             using var wait = new CancellationTokenSource(TimeSpan.FromSeconds(4));
-            while (!feeds.TryGet("fast", out var fast) || !fast.LastSeenGuids.Contains("second"))
+            while (!feeds.TryGet("fast", out var fast) || !fast.SeenUpdateIds.Contains("second"))
                 await Task.Delay(25, wait.Token);
             Assert.True(await scheduler.StopAsync());
 
             Assert.True(feeds.TryGet("fast", out var completed));
-            Assert.Contains("second", completed.LastSeenGuids);
+            Assert.Contains("second", completed.SeenUpdateIds);
         }
         finally
         {
@@ -205,13 +205,13 @@ public sealed class PollingTests
         {
             var state = new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
                     ["news"] = new()
                     {
-                        Url = "https://example.test/rss",
-                        LastSeenGuids = ["old"],
-                        LastFetchAt = DateTimeOffset.UtcNow.AddHours(-1),
+                        Key = "https://example.test/rss",
+                        SeenUpdateIds = ["old"],
+                        LastCheckedAt = DateTimeOffset.UtcNow.AddHours(-1),
                         ConsecutiveFailures = 2,
                         ETag = "\"v1\""
                     }
@@ -226,7 +226,7 @@ public sealed class PollingTests
             using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
             new StateStore(directory).SaveSync(state);
             using var app = TestApp.Create(directory, state, config, http);
-            var feeds = app.Feeds;
+            var feeds = app.Targets;
             var scheduler = app.Poll;
             app.Poll.Reset(new(), []);
 
@@ -238,9 +238,9 @@ public sealed class PollingTests
 
             Assert.Equal("\"v1\"", handler.RequestedEtag);
             Assert.True(feeds.TryGet("news", out var feed));
-            Assert.Equal(["old"], feed.LastSeenGuids);
+            Assert.Equal(["old"], feed.SeenUpdateIds);
             Assert.Equal("\"v2\"", feed.ETag);
-            Assert.Equal(0, new StateStore(directory).Load().Feeds["news"].ConsecutiveFailures);
+            Assert.Equal(0, new StateStore(directory).Load().Targets["news"].ConsecutiveFailures);
         }
         finally
         {

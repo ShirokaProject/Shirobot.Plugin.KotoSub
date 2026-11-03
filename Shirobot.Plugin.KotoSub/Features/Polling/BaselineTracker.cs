@@ -1,6 +1,6 @@
 namespace Shirobot.Plugin.KotoSub.Features.Polling;
 
-internal sealed class BaselineTracker(FeedProgress progress, DeliveryReceiptStore receipts, Func<KotoSubConfig> config)
+internal sealed class BaselineTracker(TargetProgress progress, DeliveryReceiptStore receipts, Func<KotoSubConfig> config)
 {
     private readonly HashSet<string> _pending = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _attempted = new(StringComparer.OrdinalIgnoreCase);
@@ -27,9 +27,9 @@ internal sealed class BaselineTracker(FeedProgress progress, DeliveryReceiptStor
     }
 
     /// <summary>Everything currently in the feed counts as seen; nothing is pushed.</summary>
-    public void Establish(string feedId, IReadOnlyList<FeedItem> items)
+    public void Establish(string feedId, IReadOnlyList<UpdateEvent> items)
     {
-        progress.MarkSeen(feedId, FeedItem.SeenOrder(items), config().LastSeenCapacity);
+        progress.MarkSeen(feedId, UpdateEvent.SeenOrder(items), config().LastSeenCapacity);
         receipts.ClearFeed(feedId);
         lock (_lock)
         {

@@ -14,7 +14,7 @@ internal sealed class QqOfficialDelivery(IBotContext context, Func<KotoSubConfig
 
     /// <summary>False when this chat is not served by the QQ official API; the caller then sends generically.</summary>
     public async Task<bool> TrySendAsync(
-        SubscriberKey subscriber, string alias, FeedSource feed, FeedItem item, string? replyTo,
+        SubscriberKey subscriber, string alias, SubscriptionTarget feed, UpdateEvent item, string? replyTo,
         bool includeImage, CancellationToken cancellationToken)
     {
         var official = context.GetAdapterExtension<IQOfficialMessageApi>();
@@ -48,7 +48,7 @@ internal sealed class QqOfficialDelivery(IBotContext context, Func<KotoSubConfig
 
     private async Task<bool> TrySendCardAsync(
         IQOfficialMessageApi official, QOfficialMessageTarget target, QOfficialMessageReply? reply,
-        SubscriberKey subscriber, FeedSource feed, FeedItem item, bool includeImage, CancellationToken cancellationToken)
+        SubscriberKey subscriber, SubscriptionTarget feed, UpdateEvent item, bool includeImage, CancellationToken cancellationToken)
     {
         var png = await cards!.TryRenderAsync(feed, item, includeImage, cancellationToken).ConfigureAwait(false);
         if (png is not { Length: > 0 })
@@ -113,7 +113,7 @@ internal sealed class QqOfficialDelivery(IBotContext context, Func<KotoSubConfig
 
     private async Task SendMarkdownAsync(
         IQOfficialMessageApi official, QOfficialMessageTarget target, QOfficialMessageReply? reply,
-        SubscriberKey subscriber, string alias, FeedSource feed, FeedItem item, bool includeImage,
+        SubscriberKey subscriber, string alias, SubscriptionTarget feed, UpdateEvent item, bool includeImage,
         CancellationToken cancellationToken)
     {
         var settings = config();
@@ -148,7 +148,7 @@ internal sealed class QqOfficialDelivery(IBotContext context, Func<KotoSubConfig
             "QQPlatform Markdown failed and no recent message is available for text fallback."));
     }
 
-    private Task SendQuotedTextAsync(SubscriberKey subscriber, FeedSource feed, FeedItem item, string replyTo) =>
+    private Task SendQuotedTextAsync(SubscriberKey subscriber, SubscriptionTarget feed, UpdateEvent item, string replyTo) =>
         context.Message.SendMessageAsync(
             subscriber.Scope == SubscriberScope.Group
                 ? Channel.Group(subscriber.TargetId)

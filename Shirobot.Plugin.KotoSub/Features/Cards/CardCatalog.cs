@@ -21,21 +21,21 @@ internal sealed class CardCatalog
     }
 
     /// <summary>Article link first (a feed mixing sites), then the feed address, then the generator tag.</summary>
-    public ICardStyle StyleFor(FeedSource feed, FeedItem item)
+    public ICardStyle StyleFor(SubscriptionTarget feed, UpdateEvent item)
     {
         if (Uri.TryCreate(item.Link, UriKind.Absolute, out var itemUri) &&
             _styles.FirstOrDefault(style => style.Matches(itemUri)) is { } byLink)
             return byLink;
-        if (Uri.TryCreate(feed.Url, UriKind.Absolute, out var feedUri) &&
+        if (Uri.TryCreate(feed.Key, UriKind.Absolute, out var feedUri) &&
             _styles.FirstOrDefault(style => style.Matches(feedUri)) is { } byFeed)
             return byFeed;
-        if (!string.IsNullOrWhiteSpace(feed.Generator) &&
-            _styles.FirstOrDefault(style => style.MatchesGenerator(feed.Generator)) is { } byGenerator)
+        if (feed.Metadata.TryGetValue("generator", out var generator) &&
+            _styles.FirstOrDefault(style => style.MatchesGenerator(generator)) is { } byGenerator)
             return byGenerator;
         return _generic;
     }
 
-    public ICardRecipe RecipeFor(ICardStyle style, FeedSource feed, FeedItem item)
+    public ICardRecipe RecipeFor(ICardStyle style, SubscriptionTarget feed, UpdateEvent item)
     {
         var variant = style.ResolveVariant(feed, item);
         return Find(style, variant) ?? Find(style, ArticleVariant) ?? Find(_generic, ArticleVariant)!;

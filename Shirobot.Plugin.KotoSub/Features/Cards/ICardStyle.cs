@@ -25,8 +25,8 @@ internal interface ICardStyle
     /// <summary>True when the site's own icon should stand in for a missing author avatar.</summary>
     bool ResolvesSiteAvatar => false;
 
-    string ResolveVariant(FeedSource feed, FeedItem item) => CardCatalog.ArticleVariant;
+    string ResolveVariant(SubscriptionTarget feed, UpdateEvent item) => CardCatalog.ArticleVariant;
 
-    Task<CardDataSupplement?> LoadDataAsync(FeedItem item, string variant, CancellationToken cancellationToken) =>
+    Task<CardDataSupplement?> LoadDataAsync(UpdateEvent item, string variant, CancellationToken cancellationToken) =>
         Task.FromResult<CardDataSupplement?>(null);
 }

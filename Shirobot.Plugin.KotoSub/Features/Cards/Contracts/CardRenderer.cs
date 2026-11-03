@@ -7,13 +7,13 @@ namespace Shirobot.Plugin.KotoSub.Features.Cards.Contracts;
 internal sealed class CardRenderer(IRenderContext? renderer, CardCatalog catalog, CardMediaLoader media)
 {
     /// <summary>Name of the platform an item belongs to, for captions.</summary>
-    public string LabelFor(FeedSource feed, FeedItem item) => catalog.StyleFor(feed, item).Label;
+    public string LabelFor(SubscriptionTarget feed, UpdateEvent item) => catalog.StyleFor(feed, item).Label;
 
     /// <summary>True when the card already prints the feed's name and icon.</summary>
-    public bool RendersFeedMetadata(FeedSource feed, FeedItem item) => catalog.StyleFor(feed, item).RendersFeedMetadata;
+    public bool RendersFeedMetadata(SubscriptionTarget feed, UpdateEvent item) => catalog.StyleFor(feed, item).RendersFeedMetadata;
 
     public async Task<byte[]?> TryRenderAsync(
-        FeedSource feed, FeedItem item, bool includeCover, CancellationToken cancellationToken)
+        SubscriptionTarget feed, UpdateEvent item, bool includeCover, CancellationToken cancellationToken)
     {
         if (renderer is not IAvaloniaRenderContext avalonia)
         {
@@ -27,7 +27,7 @@ internal sealed class CardRenderer(IRenderContext? renderer, CardCatalog catalog
         try
         {
             var supplement = await style.LoadDataAsync(item, recipe.VariantId, cancellationToken).ConfigureAwait(false);
-            var avatarUrl = supplement?.AvatarUrl ?? feed.FeedImageUrl;
+            var avatarUrl = supplement?.AvatarUrl ?? feed.SourceImageUrl;
             if (string.IsNullOrWhiteSpace(avatarUrl) && style.ResolvesSiteAvatar)
                 avatarUrl = await media.TryResolveSiteAvatarUrlAsync(item.Link, cancellationToken).ConfigureAwait(false);
             using var model = new CardViewModel
@@ -78,7 +78,7 @@ internal sealed class CardRenderer(IRenderContext? renderer, CardCatalog catalog
         }
     }
 
-    private static string BuildCardDescription(FeedItem item)
+    private static string BuildCardDescription(UpdateEvent item)
     {
         var description = string.IsNullOrWhiteSpace(item.FullDescription)
             ? item.Description

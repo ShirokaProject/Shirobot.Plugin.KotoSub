@@ -2,8 +2,8 @@ namespace Shirobot.Plugin.KotoSub.Features.Polling.Contracts;
 
 /// <summary>Once a second, starts a check for every feed that is due.</summary>
 internal sealed class PollLoop(
-    FeedRegistry feeds, BaselineTracker baselines, DeliveryReceiptStore receipts,
-    FeedCheckRunner runner, Func<KotoSubConfig> config) : IDisposable
+    TargetRegistry feeds, BaselineTracker baselines, DeliveryReceiptStore receipts,
+    UpdateCheckRunner runner, Func<KotoSubConfig> config) : IDisposable
 {
     private readonly Dictionary<string, Task> _activeChecks = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _activeLock = new();
@@ -128,7 +128,7 @@ internal sealed class PollLoop(
         }
     }
 
-    private async Task CheckAsync(FeedSource feed, bool baselineMode, CancellationToken cancellationToken)
+    private async Task CheckAsync(SubscriptionTarget feed, bool baselineMode, CancellationToken cancellationToken)
     {
         try
         {

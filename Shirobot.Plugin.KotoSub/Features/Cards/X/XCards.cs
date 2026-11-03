@@ -11,7 +11,7 @@ internal sealed class XCards : ICardStyle
     public bool Matches(Uri uri) =>
         FeedUrl.HostIs(uri, "x.com") || FeedUrl.HostIs(uri, "twitter.com") || IsRssHubTwitterUserRoute(uri);
 
-    public string ResolveVariant(FeedSource feed, FeedItem item) => PostVariant;
+    public string ResolveVariant(SubscriptionTarget feed, UpdateEvent item) => PostVariant;
 
     private static bool IsRssHubTwitterUserRoute(Uri uri)
     {

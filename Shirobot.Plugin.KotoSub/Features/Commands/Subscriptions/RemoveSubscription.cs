@@ -1,7 +1,7 @@
 namespace Shirobot.Plugin.KotoSub.Features.Commands.Subscriptions;
 
 internal sealed class RemoveSubscription(
-    SubscriptionRegistry subscriptions, FeedRegistry feeds, StatePersister persister) : ISubCommand
+    SubscriptionRegistry subscriptions, TargetRegistry feeds, StatePersister persister) : ISubCommand
 {
     public IReadOnlyList<string> Names { get; } = ["remove", "rm", "del"];
     public string Usage => "remove <别名>";

@@ -16,7 +16,7 @@ public sealed class SubscriptionIsolationTests : IDisposable
     public void Dispose() => _h.Dispose();
 
     [Fact]
-    public async Task TwoGroupsMayUseTheSameAliasForDifferentFeeds()
+    public async Task TwoGroupsMayUseTheSameAliasForDifferentTargets()
     {
         Assert.Contains("已订阅 news", await _h.Say($"#rss add {FeedA} news", target: "group-1"));
         Assert.Contains("已订阅 news", await _h.Say($"#rss add {FeedB} news", target: "group-2"));
@@ -42,7 +42,7 @@ public sealed class SubscriptionIsolationTests : IDisposable
     public async Task AnotherGroupsAliasOrInternalKeyCannotBeUsedToSubscribe()
     {
         await _h.Say($"#rss add {FeedA} secret-news", target: "group-1");
-        var internalKey = Assert.Single(_h.Feeds.All()).Id;
+        var internalKey = Assert.Single(_h.Targets.All()).Id;
 
         foreach (var guess in new[] { "secret-news", internalKey, "alpha" })
         {
@@ -149,11 +149,11 @@ public sealed class SubscriptionIsolationTests : IDisposable
         await _h.Say($"#rss add {FeedB} other-name", target: "group-2");
 
         await _h.Say("#rss remove daily", target: "group-1");
-        Assert.Single(_h.Feeds.All());
+        Assert.Single(_h.Targets.All());
         Assert.Single(_h.Subscriptions.List(Key("group-2")));
 
         await _h.Say("#rss remove other-name", target: "group-2");
-        Assert.Empty(_h.Feeds.All());
+        Assert.Empty(_h.Targets.All());
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public sealed class SubscriptionIsolationTests : IDisposable
     {
         await _h.Say($"#rss add {FeedB} daily", target: "group-1", instance: "inst-a");
         await _h.Say($"#rss add {FeedB} news", target: "group-1", instance: "inst-b");
-        var feedId = Assert.Single(_h.Feeds.All()).Id;
+        var feedId = Assert.Single(_h.Targets.All()).Id;
 
         var subscribers = _h.Subscriptions.SubscribersOf(feedId);
 
@@ -223,7 +223,7 @@ public sealed class SubscriptionIsolationTests : IDisposable
             _app = TestApp.Create(_directory, state, config, _http, bot);
         }
 
-        public FeedRegistry Feeds => _app.Feeds;
+        public TargetRegistry Targets => _app.Targets;
         public SubscriptionRegistry Subscriptions => _app.Subscriptions;
         public List<AdapterInstanceInfo> Instances { get; }
 

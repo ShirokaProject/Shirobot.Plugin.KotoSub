@@ -26,6 +26,6 @@ internal sealed class RssSource(RssFetcher fetcher) : ISubscriptionSource
         return new AddressInput(commits.Uri.AbsoluteUri, FeedIdGenerator.Sanitize(parts[0]));
     }
 
-    public Task<FeedFetchResult> FetchAsync(FetchRequest request, CancellationToken cancellationToken) =>
-        fetcher.FetchAsync(request.Url, request.ETag, request.LastModified, cancellationToken);
+    public Task<SourceUpdateBatch> FetchAsync(FetchRequest request, CancellationToken cancellationToken) =>
+        fetcher.FetchAsync(request.TargetKey, request.ETag, request.LastModified, cancellationToken);
 }

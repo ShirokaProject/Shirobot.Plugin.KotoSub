@@ -21,10 +21,10 @@ internal static class RssParser
     };
 
     /// <summary>Reads an RSS 2.0 / RDF / Atom 1.0 document into feed metadata and items.</summary>
-    public static FeedFetchResult Parse(
+    public static SourceUpdateBatch Parse(
         XElement? root, string finalUrl, int maxDescription, string? etag, DateTimeOffset? lastModified)
     {
-        if (root is null) return new FeedFetchResult(null, []);
+        if (root is null) return new SourceUpdateBatch(null, []);
 
         if (string.Equals(root.Name.LocalName, "rss", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(root.Name.LocalName, "RDF", StringComparison.OrdinalIgnoreCase))
@@ -32,12 +32,12 @@ internal static class RssParser
             var channel = root.Descendants().FirstOrDefault(e => IsNamed(e, "channel"));
             var imageUrl = channel?.Elements().FirstOrDefault(e => IsNamed(e, "image"))?
                 .Elements().FirstOrDefault(e => IsNamed(e, "url"))?.Value;
-            return new FeedFetchResult(
+            return new SourceUpdateBatch(
                 NormalizeTitle(channel?.Elements().FirstOrDefault(e => IsNamed(e, "title"))?.Value?.Trim()),
                 ParseRss(root, finalUrl, maxDescription))
             {
-                Generator = channel?.Elements().FirstOrDefault(e => IsNamed(e, "generator"))?.Value?.Trim(),
-                FeedImageUrl = ResolveFeedImageUrl(imageUrl, finalUrl),
+                Metadata = ReadGenerator(channel?.Elements().FirstOrDefault(e => IsNamed(e, "generator"))?.Value),
+                SourceImageUrl = ResolveSourceImageUrl(imageUrl, finalUrl),
                 ETag = etag,
                 LastModified = lastModified
             };
@@ -45,12 +45,12 @@ internal static class RssParser
 
         if (string.Equals(root.Name.LocalName, "feed", StringComparison.OrdinalIgnoreCase))
         {
-            return new FeedFetchResult(
+            return new SourceUpdateBatch(
                 NormalizeTitle(root.Element(AtomNs + "title")?.Value?.Trim()),
                 ParseAtom(root, finalUrl, maxDescription))
             {
-                Generator = root.Element(AtomNs + "generator")?.Value?.Trim(),
-                FeedImageUrl = ResolveFeedImageUrl(
+                Metadata = ReadGenerator(root.Element(AtomNs + "generator")?.Value),
+                SourceImageUrl = ResolveSourceImageUrl(
                     root.Element(AtomNs + "icon")?.Value ?? root.Element(AtomNs + "logo")?.Value, finalUrl),
                 ETag = etag,
                 LastModified = lastModified
@@ -63,6 +63,11 @@ internal static class RssParser
     private static bool IsNamed(XElement element, string localName) =>
         string.Equals(element.Name.LocalName, localName, StringComparison.OrdinalIgnoreCase);
 
+    private static IReadOnlyDictionary<string, string> ReadGenerator(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["generator"] = value.Trim() };
+
     public static string? NormalizeTitle(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -74,9 +79,9 @@ internal static class RssParser
         return string.IsNullOrWhiteSpace(stripped) ? null : stripped;
     }
 
-    public static List<FeedItem> ParseRss(XElement root, string baseUrl, int maxDescription)
+    public static List<UpdateEvent> ParseRss(XElement root, string baseUrl, int maxDescription)
     {
-        var items = new List<FeedItem>();
+        var items = new List<UpdateEvent>();
         var itemElements = root
             .Descendants()
             .Where(e => string.Equals(e.Name.LocalName, "item", StringComparison.OrdinalIgnoreCase));
@@ -115,7 +120,7 @@ internal static class RssParser
             var fullDescription = HtmlSanitizer.StripFormattedText(rich);
             var firstImage = HtmlSanitizer.FindFirstImage(rich, resolvedLink);
 
-            items.Add(new FeedItem(id, title, resolvedLink, safeDescription, published, categories, firstImage)
+            items.Add(new UpdateEvent(id, title, resolvedLink, safeDescription, published, categories, firstImage)
             {
                 FullDescription = fullDescription
             });
@@ -124,9 +129,9 @@ internal static class RssParser
         return items;
     }
 
-    public static List<FeedItem> ParseAtom(XElement root, string baseUrl, int maxDescription)
+    public static List<UpdateEvent> ParseAtom(XElement root, string baseUrl, int maxDescription)
     {
-        var items = new List<FeedItem>();
+        var items = new List<UpdateEvent>();
         var entries = root.Elements(AtomNs + "entry");
         foreach (var entry in entries)
         {
@@ -166,7 +171,7 @@ internal static class RssParser
             var fullDescription = HtmlSanitizer.StripFormattedText(rich);
             var firstImage = HtmlSanitizer.FindFirstImage(rich, resolvedLink);
 
-            items.Add(new FeedItem(effectiveId, title, resolvedLink, safeDescription, published, categories, firstImage)
+            items.Add(new UpdateEvent(effectiveId, title, resolvedLink, safeDescription, published, categories, firstImage)
             {
                 FullDescription = fullDescription
             });
@@ -225,7 +230,7 @@ internal static class RssParser
         return url;
     }
 
-    private static string? ResolveFeedImageUrl(string? value, string baseUrl)
+    private static string? ResolveSourceImageUrl(string? value, string baseUrl)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var resolved = ResolveUrl(value.Trim(), baseUrl);

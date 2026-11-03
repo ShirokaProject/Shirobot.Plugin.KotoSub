@@ -2,7 +2,7 @@ namespace Shirobot.Plugin.KotoSub.Features.Polling;
 
 internal static class BackoffPolicy
 {
-    public static TimeSpan EffectiveInterval(FeedSource feed, KotoSubConfig config)
+    public static TimeSpan EffectiveInterval(SubscriptionTarget feed, KotoSubConfig config)
     {
         var baseInterval = Math.Max(1, Math.Max(
             config.MinIntervalSeconds,
@@ -19,13 +19,13 @@ internal static class BackoffPolicy
         return TimeSpan.FromSeconds(seconds);
     }
 
-    public static DateTimeOffset NextDueAt(FeedSource feed, KotoSubConfig config)
+    public static DateTimeOffset NextDueAt(SubscriptionTarget feed, KotoSubConfig config)
     {
-        if (feed.LastFetchAt is null)
+        if (feed.LastCheckedAt is null)
         {
             return DateTimeOffset.UtcNow;
         }
 
-        return feed.LastFetchAt.Value + EffectiveInterval(feed, config);
+        return feed.LastCheckedAt.Value + EffectiveInterval(feed, config);
     }
 }

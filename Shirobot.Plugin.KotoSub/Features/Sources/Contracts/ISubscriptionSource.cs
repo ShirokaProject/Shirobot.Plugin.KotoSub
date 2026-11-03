@@ -1,14 +1,18 @@
 namespace Shirobot.Plugin.KotoSub.Features.Sources.Contracts;
 
 /// <summary>Conditional-request state remembered from the previous successful fetch.</summary>
-internal sealed record FetchRequest(string Url, string? ETag = null, DateTimeOffset? LastModified = null);
+internal sealed record FetchRequest(
+    string TargetKey,
+    string? ETag = null,
+    DateTimeOffset? LastModified = null,
+    IReadOnlyDictionary<string, string>? ProviderState = null);
 
 /// <summary>An address ready to be fetched, with a short name to suggest for it.</summary>
-internal sealed record AddressInput(string FeedUrl, string? SuggestedAlias = null);
+internal sealed record AddressInput(string TargetKey, string? SuggestedAlias = null);
 
 /// <summary>
-/// Where items come from. RSS / Atom is one source; another kind (an API, a page) only has to say which
-/// addresses it can read and turn the remote state into a list of items.
+/// Where subscription updates come from. A provider can map a user-facing address to a stable target key,
+/// then turn provider data into generic update events.
 /// </summary>
 internal interface ISubscriptionSource
 {
@@ -19,5 +23,5 @@ internal interface ISubscriptionSource
     /// <summary>Turns a page address a person would paste into the address that is actually fetched.</summary>
     AddressInput Normalize(Uri uri);
 
-    Task<FeedFetchResult> FetchAsync(FetchRequest request, CancellationToken cancellationToken);
+    Task<SourceUpdateBatch> FetchAsync(FetchRequest request, CancellationToken cancellationToken);
 }

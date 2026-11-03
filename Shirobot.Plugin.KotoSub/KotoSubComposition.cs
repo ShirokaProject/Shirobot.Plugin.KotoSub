@@ -28,15 +28,15 @@ internal sealed record CompositionOptions(
 [ArchitectureException("组合根：把所有模块装配到一起，依赖多是预期的")]
 internal sealed class KotoSubComposition : IDisposable
 {
-    private readonly FeedFetchStep _fetchStep;
+    private readonly SourceFetchStep _fetchStep;
     private readonly BaselineTracker _baselines;
 
     private KotoSubComposition(
-        FeedRegistry feeds, SubscriptionRegistry subscriptions, DeliveryReceiptStore receipts,
-        BaselineTracker baselines, FeedFetchStep fetchStep, StatePersister persister,
+        TargetRegistry feeds, SubscriptionRegistry subscriptions, DeliveryReceiptStore receipts,
+        BaselineTracker baselines, SourceFetchStep fetchStep, StatePersister persister,
         PollLoop poll, SubCommandRouter router, ItemDispatcher dispatcher)
     {
-        Feeds = feeds;
+        Targets = feeds;
         Subscriptions = subscriptions;
         Receipts = receipts;
         _baselines = baselines;
@@ -47,7 +47,7 @@ internal sealed class KotoSubComposition : IDisposable
         Dispatcher = dispatcher;
     }
 
-    public FeedRegistry Feeds { get; }
+    public TargetRegistry Targets { get; }
     public SubscriptionRegistry Subscriptions { get; }
     public DeliveryReceiptStore Receipts { get; }
     public StatePersister Persister { get; }
@@ -58,10 +58,10 @@ internal sealed class KotoSubComposition : IDisposable
     public static KotoSubComposition Create(CompositionOptions o)
     {
         var config = o.Config;
-        var feeds = new FeedRegistry();
+        var feeds = new TargetRegistry();
         var subscriptions = new SubscriptionRegistry();
         var receipts = new DeliveryReceiptStore();
-        var progress = new FeedProgress(feeds);
+        var progress = new TargetProgress(feeds);
         var baselines = new BaselineTracker(progress, receipts, config);
         Load(o.State, feeds, subscriptions, receipts, baselines);
 
@@ -76,15 +76,15 @@ internal sealed class KotoSubComposition : IDisposable
             var subs = subscriptions.Snapshot();
             return new SubState
             {
-                Feeds = feeds.Snapshot(),
+                Targets = feeds.Snapshot(),
                 GroupSubs = subs.Groups,
                 FriendSubs = subs.Friends,
                 DeliveryReceipts = receipts.Snapshot(feedId => feeds.TryGet(feedId, out _))
             };
         });
 
-        var fetchStep = new FeedFetchStep(progress, sources, persister, config);
-        var runner = new FeedCheckRunner(
+        var fetchStep = new SourceFetchStep(progress, sources, persister, config);
+        var runner = new UpdateCheckRunner(
             fetchStep, new ItemPusher(subscriptions, dispatcher, receipts, progress, config), baselines, progress, persister);
         var poll = new PollLoop(feeds, baselines, receipts, runner, config);
 
@@ -97,14 +97,14 @@ internal sealed class KotoSubComposition : IDisposable
         [
             new ShowStatus(subscriptions, formatter, config),
             new ListSubscriptions(subscriptions, formatter),
-            new AddSubscription(sources, onDemand, new FeedEnrollment(feeds, config), subscriptions, persister),
+            new AddSubscription(sources, onDemand, new TargetEnrollment(feeds, config), subscriptions, persister),
             new RemoveSubscription(subscriptions, feeds, persister),
             new RenameAlias(subscriptions, persister),
             new ShowLatest(subscriptions, feeds, delivery, config),
             new TestPush(subscriptions, feeds, delivery),
             new ManageConfig(config, o.SaveConfig),
             new SetInterval(subscriptions, feeds, progress, config, persister),
-            new ListFeeds(feeds, subscriptions),
+            new ListTargets(feeds, subscriptions),
             new ReloadState(o.Reload)
         ]);
 
@@ -113,7 +113,7 @@ internal sealed class KotoSubComposition : IDisposable
     }
 
     /// <summary>Replaces the in-memory state with <paramref name="state"/>; the poll loop must be stopped.</summary>
-    public void Reload(SubState state) => Load(state, Feeds, Subscriptions, Receipts, _baselines);
+    public void Reload(SubState state) => Load(state, Targets, Subscriptions, Receipts, _baselines);
 
     public void Dispose()
     {
@@ -123,12 +123,12 @@ internal sealed class KotoSubComposition : IDisposable
     }
 
     private static void Load(
-        SubState state, FeedRegistry feeds, SubscriptionRegistry subscriptions,
+        SubState state, TargetRegistry feeds, SubscriptionRegistry subscriptions,
         DeliveryReceiptStore receipts, BaselineTracker baselines)
     {
-        feeds.LoadFrom(state.Feeds);
+        feeds.LoadFrom(state.Targets);
         subscriptions.LoadFrom(state.GroupSubs, state.FriendSubs);
         receipts.Load(state.DeliveryReceipts);
-        baselines.Reset(state.Feeds.Keys);
+        baselines.Reset(state.Targets.Keys);
     }
 }

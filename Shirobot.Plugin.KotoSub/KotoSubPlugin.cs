@@ -68,7 +68,7 @@ public sealed class KotoSubPlugin : PluginBase<KotoSubConfig>
         _app.Poll.Start();
 
         BotLog.Success(
-            $"[KotoSub] 初始化完成。feeds={state.Feeds.Count}, groups={state.GroupSubs.Count}, " +
+            $"[KotoSub] 初始化完成。feeds={state.Targets.Count}, groups={state.GroupSubs.Count}, " +
             $"friends={state.FriendSubs.Count}, interval={_config.DefaultIntervalSeconds}s");
 
         if (!_config.Enabled)

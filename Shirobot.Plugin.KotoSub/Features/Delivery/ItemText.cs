@@ -9,7 +9,7 @@ internal sealed class ItemText(ImageEmbedder images, CardRenderer? cards, Func<K
     public const string Separator = "────────";
 
     /// <summary>Text only: title, cover link, source name, link and age.</summary>
-    public static string Preview(FeedSource feed, FeedItem item)
+    public static string Preview(SubscriptionTarget feed, UpdateEvent item)
     {
         var builder = new StringBuilder();
         builder.AppendLine(TitleOf(item));
@@ -22,7 +22,7 @@ internal sealed class ItemText(ImageEmbedder images, CardRenderer? cards, Func<K
 
     /// <summary>Card image when cards are available, else the first picture plus text.</summary>
     public async Task<MessageSegment[]> BuildSegmentsAsync(
-        FeedSource feed, FeedItem item, bool includeImage, CancellationToken cancellationToken)
+        SubscriptionTarget feed, UpdateEvent item, bool includeImage, CancellationToken cancellationToken)
     {
         var tail = new StringBuilder(Separator).AppendLine();
         AppendFooter(tail, feed, item);
@@ -43,9 +43,9 @@ internal sealed class ItemText(ImageEmbedder images, CardRenderer? cards, Func<K
             : [new TextSegment(TitleOf(item) + "\n"), picture, new TextSegment("\n" + tail)];
     }
 
-    private static string TitleOf(FeedItem item) => string.IsNullOrWhiteSpace(item.Title) ? "(无标题)" : item.Title;
+    private static string TitleOf(UpdateEvent item) => string.IsNullOrWhiteSpace(item.Title) ? "(无标题)" : item.Title;
 
-    private static void AppendFooter(StringBuilder builder, FeedSource feed, FeedItem item)
+    private static void AppendFooter(StringBuilder builder, SubscriptionTarget feed, UpdateEvent item)
     {
         builder.Append('[').Append(feed.DisplayOrHost).Append(']');
         if (!string.IsNullOrWhiteSpace(item.Link)) builder.AppendLine().Append(item.Link);

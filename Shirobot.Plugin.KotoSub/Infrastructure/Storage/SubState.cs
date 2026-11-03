@@ -5,8 +5,8 @@ namespace Shirobot.Plugin.KotoSub.Infrastructure.Storage;
 
 internal sealed class SubState
 {
-    [JsonPropertyName("feeds")]
-    public Dictionary<string, PersistentFeed> Feeds { get; set; } = new();
+    [JsonPropertyName("targets")]
+    public Dictionary<string, PersistentTarget> Targets { get; set; } = new();
 
     /// <summary>Subscriber storage key → (alias → internal feed id).</summary>
     [JsonPropertyName("groupSubs")]

@@ -4,7 +4,7 @@ namespace Shirobot.Plugin.KotoSub.Features.Commands.Admin;
 
 /// <summary>Bot owner sets how often a source is polled. Accepts this chat's alias or the key shown by "feeds".</summary>
 internal sealed class SetInterval(
-    SubscriptionRegistry subscriptions, FeedRegistry feeds, FeedProgress progress,
+    SubscriptionRegistry subscriptions, TargetRegistry feeds, TargetProgress progress,
     Func<KotoSubConfig> config, StatePersister persister) : ISubCommand
 {
     public IReadOnlyList<string> Names { get; } = ["interval"];

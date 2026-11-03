@@ -43,8 +43,8 @@ public sealed class DeliveryFormattingTests
     public void MarkdownTemplateRendersFeedFieldsAndSafeButtons()
     {
         var config = new KotoSubConfig { IncludeImage = true };
-        var feed = new FeedSource { Id = "news", DisplayName = "技术*周刊" };
-        var item = new FeedItem("1", "A [title]", "https://example.org/post", "正文", null, [], "https://example.org/a.png");
+        var feed = new SubscriptionTarget { Id = "news", DisplayName = "技术*周刊" };
+        var item = new UpdateEvent("1", "A [title]", "https://example.org/post", "正文", null, [], "https://example.org/a.png");
         var markdown = MarkdownFormatter.Render(feed, "my-news", item, config, includeImage: true);
         Assert.Contains("A \\[title\\]", markdown);
         Assert.Contains("技术\\*周刊", markdown);
@@ -60,8 +60,8 @@ public sealed class DeliveryFormattingTests
     public void UnsafeArticleUrlDoesNotBecomeActionButton()
     {
         var config = new KotoSubConfig();
-        var feed = new FeedSource { Id = "news" };
-        var item = new FeedItem("1", "title", "javascript:alert(1)", "", null, [], null);
+        var feed = new SubscriptionTarget { Id = "news" };
+        var item = new UpdateEvent("1", "title", "javascript:alert(1)", "", null, [], null);
         var buttons = Assert.Single(MarkdownFormatter.CreateKeyboard("news", item, config)!.Rows).Buttons;
         Assert.Single(buttons);
         Assert.Equal(QKeyboardActionType.Command, buttons[0].Action.Type);

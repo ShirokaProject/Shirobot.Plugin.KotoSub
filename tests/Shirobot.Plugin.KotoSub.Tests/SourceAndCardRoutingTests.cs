@@ -21,7 +21,7 @@ public sealed class SourceAndCardRoutingTests
         var address = source.Normalize(new Uri(typed));
 
         Assert.Equal("rss", source.Id);
-        Assert.Equal(fetched, address.FeedUrl);
+        Assert.Equal(fetched, address.TargetKey);
         Assert.Equal(alias, address.SuggestedAlias);
     }
 
@@ -40,14 +40,18 @@ public sealed class SourceAndCardRoutingTests
     [InlineData("https://github.com.evil.example/owner/repo", "general")]
     public void CardStyleFollowsTheExactDomainOfTheArticle(string link, string styleId)
     {
-        var feed = new FeedSource { Id = "f", Url = "https://rsshub.example/feed" };
+        var feed = new SubscriptionTarget { Id = "f", Key = "https://rsshub.example/feed" };
         Assert.Equal(styleId, Cards.StyleFor(feed, Item(link)).Id);
     }
 
     [Fact]
     public void WordPressIsRecognisedByGeneratorOnlyWhenNoSiteMatches()
     {
-        var wordpress = new FeedSource { Id = "wp", Url = "https://blog.example.org/feed", Generator = "https://wordpress.org/?v=6.4" };
+        var wordpress = new SubscriptionTarget
+        {
+            Id = "wp", Key = "https://blog.example.org/feed",
+            Metadata = new Dictionary<string, string> { ["generator"] = "https://wordpress.org/?v=6.4" }
+        };
         Assert.Equal("wordpress", Cards.StyleFor(wordpress, Item("https://blog.example.org/post")).Id);
         Assert.Equal("github", Cards.StyleFor(wordpress, Item("https://github.com/o/r/issues/1")).Id);
     }
@@ -58,7 +62,7 @@ public sealed class SourceAndCardRoutingTests
     [InlineData("https://www.bilibili.com/read/cv123", "article")]
     public void BilibiliUsesArticleLinkToChooseCard(string link, string variant)
     {
-        var feed = new FeedSource { Id = "bili", Url = "https://rsshub.example/bilibili/user/dynamic/1" };
+        var feed = new SubscriptionTarget { Id = "bili", Key = "https://rsshub.example/bilibili/user/dynamic/1" };
         var item = Item(link);
         var recipe = Cards.RecipeFor(Cards.StyleFor(feed, item), feed, item);
         Assert.Equal(variant, recipe.VariantId);
@@ -67,21 +71,21 @@ public sealed class SourceAndCardRoutingTests
     [Fact]
     public void EveryStyleFallsBackToAnArticleCard()
     {
-        var feed = new FeedSource { Id = "x", Url = "https://rsshub.example/feed" };
+        var feed = new SubscriptionTarget { Id = "x", Key = "https://rsshub.example/feed" };
         var item = Item("https://example.org/post");
         Assert.Equal("article", Cards.RecipeFor(Cards.StyleFor(feed, item), feed, item).VariantId);
     }
 
     [Fact]
-    public void SourceKindSurvivesFeedRegistrySnapshot()
+    public void ProviderIdSurvivesTargetRegistrySnapshot()
     {
-        var registry = new FeedRegistry();
-        Assert.True(registry.TryAddInitialized("video", "https://example.org/feed", "Videos", null,
-            [], 100, out _, sourceKind: "rss"));
-        var restored = new FeedRegistry();
+        var registry = new TargetRegistry();
+        Assert.True(registry.TryAddInitialized("video", "rss", "https://example.org/feed", "Videos", null,
+            [], 100, out _));
+        var restored = new TargetRegistry();
         restored.LoadFrom(registry.Snapshot());
         Assert.True(restored.TryGet("video", out var feed));
-        Assert.Equal("rss", feed.SourceKind);
+        Assert.Equal("rss", feed.ProviderId);
     }
 
     [Fact]
@@ -90,11 +94,11 @@ public sealed class SourceAndCardRoutingTests
         using var http = new HttpClient();
         var text = new ItemText(new ImageEmbedder(http), null, () => new KotoSubConfig { EnableRenderedCards = true });
         var segments = await text.BuildSegmentsAsync(
-            new FeedSource { Id = "blog" }, Item("https://example.org/post"), false, CancellationToken.None);
+            new SubscriptionTarget { Id = "blog" }, Item("https://example.org/post"), false, CancellationToken.None);
         var body = Assert.Single(segments.OfType<TextSegment>()).Text;
         Assert.Contains("title", body);
         Assert.Contains("https://example.org/post", body);
     }
 
-    private static FeedItem Item(string link) => new("1", "title", link, "", null, [], null);
+    private static UpdateEvent Item(string link) => new("1", "title", link, "", null, [], null);
 }

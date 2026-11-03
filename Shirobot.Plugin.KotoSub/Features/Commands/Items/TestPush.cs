@@ -1,6 +1,6 @@
 namespace Shirobot.Plugin.KotoSub.Features.Commands.Items;
 
-internal sealed class TestPush(SubscriptionRegistry subscriptions, FeedRegistry feeds, ItemDelivery delivery)
+internal sealed class TestPush(SubscriptionRegistry subscriptions, TargetRegistry feeds, ItemDelivery delivery)
     : ISubCommand
 {
     public IReadOnlyList<string> Names { get; } = ["test"];

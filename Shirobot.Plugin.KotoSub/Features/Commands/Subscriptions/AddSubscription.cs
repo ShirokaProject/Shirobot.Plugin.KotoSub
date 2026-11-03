@@ -1,7 +1,7 @@
 namespace Shirobot.Plugin.KotoSub.Features.Commands.Subscriptions;
 
 internal sealed class AddSubscription(
-    SourceCatalog sources, OnDemandFetch fetch, FeedEnrollment enrollment,
+    SourceCatalog sources, OnDemandFetch fetch, TargetEnrollment enrollment,
     SubscriptionRegistry subscriptions, StatePersister persister) : ISubCommand
 {
     public IReadOnlyList<string> Names { get; } = ["add"];
@@ -31,7 +31,7 @@ internal sealed class AddSubscription(
         }
 
         var address = source.Normalize(parsed);
-        var url = address.FeedUrl;
+        var targetKey = address.TargetKey;
         var requested = call.Args.Count == 2 ? FeedIdGenerator.Sanitize(call.Args[1]) : null;
         if (requested is not null && AliasPolicy.IsTaken(subscriptions, call.Scope, requested))
         {
@@ -39,34 +39,34 @@ internal sealed class AddSubscription(
             return;
         }
 
-        var existing = enrollment.Find(url);
+        var existing = enrollment.Find(source.Id, targetKey);
         if (existing is not null)
         {
             await SubscribeAsync(existing, requested, source, address, call);
             return;
         }
 
-        FeedFetchResult fetched;
+        SourceUpdateBatch fetched;
         try
         {
-            fetched = await fetch.FetchNewAsync(source, url, CancellationToken.None);
+            fetched = await fetch.FetchNewAsync(source, targetKey, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            BotLog.Warning($"[KotoSub] add 验证订阅源失败 url={url}: {ex.GetType().Name}: {ex.Message}");
+            BotLog.Warning($"[KotoSub] add 验证订阅源失败 provider={source.Id}: {ex.GetType().Name}: {ex.Message}");
             await call.ReplyMentionAsync($"[订阅] 该地址不是有效的订阅源或当前无法访问，请重新添加。\n原因: {ex.Message}");
             return;
         }
 
-        existing = enrollment.Find(url);
+        existing = enrollment.Find(source.Id, targetKey);
         if (existing is not null)
         {
             await SubscribeAsync(existing, requested, source, address, call);
             return;
         }
 
-        var alias = requested ?? AliasPolicy.Choose(subscriptions, call.Scope, address.SuggestedAlias, url);
-        if (!enrollment.TryEnroll(url, fetched, source.Id, call.Scope.Format(),
+        var alias = requested ?? AliasPolicy.Choose(subscriptions, call.Scope, address.SuggestedAlias, targetKey);
+        if (!enrollment.TryEnroll(source.Id, targetKey, fetched, call.Scope.Format(),
                 feed => subscriptions.Add(call.Scope, alias, feed.Id), out var added))
         {
             await SubscribeAsync(added, requested, source, address, call);
@@ -74,13 +74,13 @@ internal sealed class AddSubscription(
         }
 
         persister.PersistSync();
-        await ReplySubscribedAsync(alias, source, url, call);
+        await ReplySubscribedAsync(alias, source, targetKey, call);
     }
 
     private async Task SubscribeAsync(
-        FeedSource feed, string? requested, ISubscriptionSource source, AddressInput address, CommandCall call)
+        SubscriptionTarget feed, string? requested, ISubscriptionSource source, AddressInput address, CommandCall call)
     {
-        var alias = requested ?? AliasPolicy.Choose(subscriptions, call.Scope, address.SuggestedAlias, feed.Url);
+        var alias = requested ?? AliasPolicy.Choose(subscriptions, call.Scope, address.SuggestedAlias, feed.Key);
         var outcome = subscriptions.Add(call.Scope, alias, feed.Id);
         switch (outcome.Status)
         {
@@ -93,7 +93,7 @@ internal sealed class AddSubscription(
         }
 
         persister.PersistSync();
-        await ReplySubscribedAsync(alias, source, feed.Url, call);
+        await ReplySubscribedAsync(alias, source, feed.Key, call);
     }
 
     private static Task ReplySubscribedAsync(string alias, ISubscriptionSource source, string url, CommandCall call)

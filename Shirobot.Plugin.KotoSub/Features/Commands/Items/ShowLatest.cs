@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Shirobot.Plugin.KotoSub.Features.Commands.Items;
 
 internal sealed class ShowLatest(
-    SubscriptionRegistry subscriptions, FeedRegistry feeds, ItemDelivery delivery, Func<KotoSubConfig> config)
+    SubscriptionRegistry subscriptions, TargetRegistry feeds, ItemDelivery delivery, Func<KotoSubConfig> config)
     : ISubCommand
 {
     public IReadOnlyList<string> Names { get; } = ["latest"];
@@ -54,7 +54,7 @@ internal sealed class ShowLatest(
     }
 
     /// <summary>Items tagged <paramref name="tag"/>; if none are, items whose title or text mention it.</summary>
-    private static List<FeedItem> ByTag(IReadOnlyList<FeedItem> items, string? tag)
+    private static List<UpdateEvent> ByTag(IReadOnlyList<UpdateEvent> items, string? tag)
     {
         if (string.IsNullOrWhiteSpace(tag)) return items.ToList();
 

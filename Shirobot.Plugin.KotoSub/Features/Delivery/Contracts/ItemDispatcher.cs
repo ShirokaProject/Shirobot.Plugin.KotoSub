@@ -27,11 +27,11 @@ internal sealed class ItemDispatcher(
     }
 
     /// <summary>Scheduled push: replies to the chat's latest message when the platform needs one.</summary>
-    public Task<bool> PushItemAsync(SubscriberKey subscriber, string alias, FeedSource feed, FeedItem item) =>
+    public Task<bool> PushItemAsync(SubscriberKey subscriber, string alias, SubscriptionTarget feed, UpdateEvent item) =>
         SendItemAsync(subscriber, alias, feed, item, RecentMessageId(subscriber), config().IncludeImage);
 
     public async Task<bool> SendItemAsync(
-        SubscriberKey subscriber, string alias, FeedSource feed, FeedItem item, string? replyToMessageId,
+        SubscriberKey subscriber, string alias, SubscriptionTarget feed, UpdateEvent item, string? replyToMessageId,
         bool includeImage, CancellationToken cancellationToken = default)
     {
         try

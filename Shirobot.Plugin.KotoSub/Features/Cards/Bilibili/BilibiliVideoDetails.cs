@@ -13,7 +13,7 @@ internal sealed partial class BilibiliVideoDetails(HttpClient http)
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(10);
     private readonly ConcurrentDictionary<string, (CardDataSupplement Data, DateTimeOffset ExpiresAt)> _cache = new();
 
-    public async Task<CardDataSupplement?> TryLoadAsync(FeedItem item, CancellationToken cancellationToken)
+    public async Task<CardDataSupplement?> TryLoadAsync(UpdateEvent item, CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(item.Link, UriKind.Absolute, out var itemUri)) return null;
         var segments = itemUri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);

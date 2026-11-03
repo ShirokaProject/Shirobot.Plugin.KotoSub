@@ -8,14 +8,14 @@ internal sealed record DeliveryResult(
     int DeliveredItems);
 
 /// <summary>On-demand fetch, item selection and delivery to one subscriber (latest / test).</summary>
-internal sealed class ItemDelivery(OnDemandFetch fetch, FeedRegistry feeds, ItemDispatcher dispatcher)
+internal sealed class ItemDelivery(OnDemandFetch fetch, TargetRegistry feeds, ItemDispatcher dispatcher)
 {
     public async Task<DeliveryResult> FetchAndDeliverAsync(
         string feedId,
         string alias,
         string trigger,
         SubscriberKey subscriber,
-        Func<IReadOnlyList<FeedItem>, IReadOnlyList<FeedItem>> selectItems,
+        Func<IReadOnlyList<UpdateEvent>, IReadOnlyList<UpdateEvent>> selectItems,
         string? replyToMessageId,
         bool includeImage,
         CancellationToken cancellationToken)

@@ -18,10 +18,10 @@ internal sealed class RssFetcher
         _configAccessor = configAccessor;
     }
 
-    public Task<FeedFetchResult> FetchAsync(string url, CancellationToken cancellationToken) =>
+    public Task<SourceUpdateBatch> FetchAsync(string url, CancellationToken cancellationToken) =>
         FetchAsync(url, null, null, cancellationToken);
 
-    public async Task<FeedFetchResult> FetchAsync(
+    public async Task<SourceUpdateBatch> FetchAsync(
         string url, string? etag, DateTimeOffset? lastModified, CancellationToken cancellationToken)
     {
         var config = Config;
@@ -40,7 +40,7 @@ internal sealed class RssFetcher
             var responseLastModified = response.Content.Headers.LastModified;
 
             if (response.StatusCode == HttpStatusCode.NotModified)
-                return new FeedFetchResult(null, [])
+                return new SourceUpdateBatch(null, [])
                 {
                     NotModified = true,
                     ETag = responseEtag,

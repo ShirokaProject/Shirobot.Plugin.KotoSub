@@ -3,9 +3,9 @@ namespace Shirobot.Plugin.KotoSub.Features.Polling;
 /// <summary>Sends newly seen items to every subscriber of a feed and remembers who already got them.</summary>
 internal sealed class ItemPusher(
     SubscriptionRegistry subscriptions, ItemDispatcher dispatcher, DeliveryReceiptStore receipts,
-    FeedProgress progress, Func<KotoSubConfig> config)
+    TargetProgress progress, Func<KotoSubConfig> config)
 {
-    public async Task PushAsync(FeedSource feed, IReadOnlyList<FeedItem> newItems, long elapsedMs)
+    public async Task PushAsync(SubscriptionTarget feed, IReadOnlyList<UpdateEvent> newItems, long elapsedMs)
     {
         var settings = config();
         var subscribers = subscriptions.SubscribersOf(feed.Id);

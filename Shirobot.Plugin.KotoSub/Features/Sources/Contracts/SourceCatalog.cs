@@ -24,7 +24,7 @@ internal sealed class SourceCatalog
                ?? throw new ArgumentException("没有可以读取该地址的订阅源。", nameof(url));
     }
 
-    public ISubscriptionSource ForFeed(FeedSource feed) =>
-        _sources.FirstOrDefault(source => source.Id.Equals(feed.SourceKind, StringComparison.OrdinalIgnoreCase))
-        ?? ForAddress(feed.Url);
+    public ISubscriptionSource ForTarget(SubscriptionTarget target) =>
+        _sources.FirstOrDefault(source => source.Id.Equals(target.ProviderId, StringComparison.OrdinalIgnoreCase))
+        ?? throw new InvalidOperationException($"未注册订阅来源 provider={target.ProviderId}。");
 }

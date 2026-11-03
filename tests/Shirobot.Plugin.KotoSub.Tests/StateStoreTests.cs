@@ -12,15 +12,15 @@ public sealed class StateStoreTests
         {
             var state = new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
                     ["news"] = new()
                     {
-                        Url = "https://example.test/rss",
+                        Key = "https://example.test/rss",
                         DisplayName = "News",
                         IntervalSeconds = 20,
-                        LastSeenGuids = ["old"],
-                        LastFetchAt = DateTimeOffset.UtcNow.AddMinutes(-3),
+                        SeenUpdateIds = ["old"],
+                        LastCheckedAt = DateTimeOffset.UtcNow.AddMinutes(-3),
                         ConsecutiveFailures = 2,
                         ETag = "\"v1\""
                     }
@@ -36,10 +36,10 @@ public sealed class StateStoreTests
 
             var loaded = store.Load();
 
-            Assert.Equal("https://example.test/rss", loaded.Feeds["news"].Url);
-            Assert.Equal("News", loaded.Feeds["news"].DisplayName);
-            Assert.Equal(["old"], loaded.Feeds["news"].LastSeenGuids);
-            Assert.Equal(2, loaded.Feeds["news"].ConsecutiveFailures);
+            Assert.Equal("https://example.test/rss", loaded.Targets["news"].Key);
+            Assert.Equal("News", loaded.Targets["news"].DisplayName);
+            Assert.Equal(["old"], loaded.Targets["news"].SeenUpdateIds);
+            Assert.Equal(2, loaded.Targets["news"].ConsecutiveFailures);
             Assert.Equal("news", loaded.GroupSubs["qq|group"]["mine"]);
             Assert.Equal(["qq|group"], loaded.DeliveryReceipts["news"]["new"]);
 
@@ -53,10 +53,10 @@ public sealed class StateStoreTests
             Assert.DoesNotContain("groupSubs", runtimeJson);
             Assert.DoesNotContain("https://example.test/rss", runtimeJson);
 
-            loaded.Feeds["news"].ConsecutiveFailures = 0;
+            loaded.Targets["news"].ConsecutiveFailures = 0;
             await store.SaveAsync(loaded);
             Assert.Equal(subscriptionsJson, File.ReadAllText(store.SubscriptionsFilePath));
-            Assert.Equal(0, store.Load().Feeds["news"].ConsecutiveFailures);
+            Assert.Equal(0, store.Load().Targets["news"].ConsecutiveFailures);
         }
         finally
         {
@@ -73,11 +73,11 @@ public sealed class StateStoreTests
             var store = new StateStore(directory);
             var state = store.Load();
 
-            Assert.Empty(state.Feeds);
+            Assert.Empty(state.Targets);
             Assert.Empty(state.GroupSubs);
             Assert.Empty(state.FriendSubs);
             Assert.True(File.Exists(store.SubscriptionsFilePath));
-            Assert.Empty(store.Load().Feeds);
+            Assert.Empty(store.Load().Targets);
         }
         finally
         {
@@ -94,9 +94,9 @@ public sealed class StateStoreTests
             var store = new StateStore(directory);
             store.SaveSync(new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
-                    ["news"] = new() { Url = "https://example.test/rss", LastSeenGuids = ["old"] }
+                    ["news"] = new() { Key = "https://example.test/rss", SeenUpdateIds = ["old"] }
                 },
                 FriendSubs = new Dictionary<string, Dictionary<string, string>> { ["qq|friend"] = new() { ["mine"] = "news" } }
             });
@@ -104,10 +104,10 @@ public sealed class StateStoreTests
 
             var recovered = store.Load();
 
-            Assert.Equal("https://example.test/rss", recovered.Feeds["news"].Url);
+            Assert.Equal("https://example.test/rss", recovered.Targets["news"].Key);
             Assert.Equal("news", recovered.FriendSubs["qq|friend"]["mine"]);
-            Assert.Empty(recovered.Feeds["news"].LastSeenGuids);
-            Assert.Null(recovered.Feeds["news"].LastFetchAt);
+            Assert.Empty(recovered.Targets["news"].SeenUpdateIds);
+            Assert.Null(recovered.Targets["news"].LastCheckedAt);
         }
         finally
         {
@@ -116,7 +116,7 @@ public sealed class StateStoreTests
     }
 
     [Fact]
-    public void MissingSubscriptionsFileCreatesEmptySubscriptionsWithoutRevivingOldFeeds()
+    public void MissingSubscriptionsFileCreatesEmptySubscriptionsWithoutRevivingOldTargets()
     {
         var directory = NewDirectory();
         try
@@ -124,9 +124,9 @@ public sealed class StateStoreTests
             var store = new StateStore(directory);
             store.SaveSync(new SubState
             {
-                Feeds = new Dictionary<string, PersistentFeed>
+                Targets = new Dictionary<string, PersistentTarget>
                 {
-                    ["news"] = new() { Url = "https://example.test/rss" }
+                    ["news"] = new() { Key = "https://example.test/rss" }
                 },
                 DeliveryReceipts = new Dictionary<string, Dictionary<string, List<string>>>
                 {
@@ -139,12 +139,12 @@ public sealed class StateStoreTests
             var loaded = store.Load();
 
             Assert.True(File.Exists(store.SubscriptionsFilePath));
-            Assert.Empty(loaded.Feeds);
+            Assert.Empty(loaded.Targets);
             Assert.Empty(loaded.GroupSubs);
             Assert.Empty(loaded.FriendSubs);
             Assert.Empty(loaded.DeliveryReceipts);
             Assert.Equal(runtimeJson, File.ReadAllText(store.FilePath));
-            Assert.Empty(store.Load().Feeds);
+            Assert.Empty(store.Load().Targets);
         }
         finally
         {

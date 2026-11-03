@@ -5,7 +5,7 @@ namespace Shirobot.Plugin.KotoSub.Features.Delivery;
 
 internal static partial class MarkdownFormatter
 {
-    public static string Render(FeedSource feed, string alias, FeedItem item, KotoSubConfig config, bool includeImage)
+    public static string Render(SubscriptionTarget feed, string alias, UpdateEvent item, KotoSubConfig config, bool includeImage)
     {
         var link = SafeUrl(item.Link);
         var image = includeImage ? SafeUrl(item.FirstImageUrl) : null;
@@ -26,7 +26,7 @@ internal static partial class MarkdownFormatter
             values.TryGetValue(match.Groups[1].Value, out var value) ? value : match.Value).Trim();
     }
 
-    public static QInlineKeyboard? CreateKeyboard(string alias, FeedItem item, KotoSubConfig config)
+    public static QInlineKeyboard? CreateKeyboard(string alias, UpdateEvent item, KotoSubConfig config)
     {
         if (!config.EnableActionButtons) return null;
         var buttons = new List<QKeyboardButton>();

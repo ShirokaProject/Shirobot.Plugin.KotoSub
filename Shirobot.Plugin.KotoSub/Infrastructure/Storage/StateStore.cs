@@ -27,7 +27,10 @@ internal sealed class StateStore
             {
                 if (!File.Exists(_subscriptionsPath))
                 {
-                    AtomicJsonFile.Write(_subscriptionsPath, new SubscriptionsDocument { GroupAliases = new(), FriendAliases = new() });
+                    AtomicJsonFile.Write(_subscriptionsPath, new SubscriptionsDocument
+                    {
+                        Targets = new(), GroupAliases = new(), FriendAliases = new()
+                    });
                     BotLog.Info("[KotoSub] subscriptions.json 不存在，已创建空订阅文件，可使用 #sub add 添加订阅。");
                 }
             }
@@ -38,10 +41,12 @@ internal sealed class StateStore
         }
 
         var subscriptions = AtomicJsonFile.Read<SubscriptionsDocument>(_subscriptionsPath);
-        if (subscriptions.Feeds is null)
-            throw new InvalidDataException("subscriptions.json 缺少必要的订阅字段。");
+        var targetDefinitions = subscriptions.Targets ?? subscriptions.LegacyFeeds;
+        if (targetDefinitions is null)
+            throw new InvalidDataException("subscriptions.json 缺少必要的 targets 字段。");
 
         var upgraded = subscriptions.Version < SubscriptionsDocument.CurrentVersion ||
+                       subscriptions.Targets is null ||
                        subscriptions.GroupAliases is null || subscriptions.FriendAliases is null;
         var groupAliases = subscriptions.GroupAliases ?? UpgradeV1(subscriptions.GroupSubs);
         var friendAliases = subscriptions.FriendAliases ?? UpgradeV1(subscriptions.FriendSubs);
@@ -60,36 +65,38 @@ internal sealed class StateStore
             runtime = new RuntimeDocument();
         }
 
-        var checkpoints = new Dictionary<string, PersistentFeedCheckpoint>(
-            runtime.Feeds ?? new(), StringComparer.OrdinalIgnoreCase);
-        var feeds = new Dictionary<string, PersistentFeed>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (id, definition) in subscriptions.Feeds)
+        var checkpoints = new Dictionary<string, PersistentTargetCheckpoint>(
+            runtime.Targets ?? runtime.LegacyFeeds ?? new(), StringComparer.OrdinalIgnoreCase);
+        var feeds = new Dictionary<string, PersistentTarget>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (id, definition) in targetDefinitions)
         {
-            if (definition is null || string.IsNullOrWhiteSpace(definition.Url))
-                throw new InvalidDataException($"subscriptions.json 的 feed={id} 缺少 URL。");
+            var targetKey = definition?.Key ?? definition?.LegacyUrl;
+            if (definition is null || string.IsNullOrWhiteSpace(targetKey))
+                throw new InvalidDataException($"subscriptions.json 的 target={id} 缺少 key。");
 
             checkpoints.TryGetValue(id, out var checkpoint);
-            feeds[id] = new PersistentFeed
+            feeds[id] = new PersistentTarget
             {
-                Url = definition.Url,
-                SourceKind = definition.SourceKind,
+                Key = targetKey,
+                ProviderId = definition.LegacyProviderId ?? definition.ProviderId,
                 DisplayName = checkpoint?.DisplayName,
-                FeedImageUrl = checkpoint?.FeedImageUrl,
-                Generator = checkpoint?.Generator,
+                SourceImageUrl = checkpoint?.SourceImageUrl ?? checkpoint?.LegacySourceImageUrl,
+                Metadata = MergeMetadata(checkpoint?.Metadata, checkpoint?.LegacyGenerator),
                 IntervalSeconds = definition.IntervalSeconds,
                 CreatedBy = definition.CreatedBy,
                 CreatedAt = definition.CreatedAt,
-                LastSeenGuids = checkpoint?.LastSeenGuids?.ToList() ?? [],
-                LastFetchAt = checkpoint?.LastFetchAt,
+                SeenUpdateIds = (checkpoint?.SeenUpdateIds ?? checkpoint?.LegacySeenUpdateIds)?.ToList() ?? [],
+                LastCheckedAt = checkpoint?.LastCheckedAt ?? checkpoint?.LegacyLastCheckedAt,
                 ETag = checkpoint?.ETag,
                 LastModified = checkpoint?.LastModified,
-                ConsecutiveFailures = checkpoint?.ConsecutiveFailures ?? 0
+                ConsecutiveFailures = checkpoint?.ConsecutiveFailures ?? 0,
+                ProviderState = checkpoint?.ProviderState ?? new(StringComparer.Ordinal)
             };
         }
 
         return new SubState
         {
-            Feeds = feeds,
+            Targets = feeds,
             GroupSubs = groupAliases,
             FriendSubs = friendAliases,
             DeliveryReceipts = (runtime.DeliveryReceipts ?? new())
@@ -164,12 +171,12 @@ internal sealed class StateStore
 
     private static SubscriptionsDocument ToSubscriptionsDocument(SubState state) => new()
     {
-        Feeds = state.Feeds.ToDictionary(
+        Targets = state.Targets.ToDictionary(
             feed => feed.Key,
-            feed => new PersistentFeedDefinition
+            feed => new PersistentTargetDefinition
             {
-                Url = feed.Value.Url,
-                SourceKind = feed.Value.SourceKind,
+                Key = feed.Value.Key,
+                ProviderId = feed.Value.ProviderId,
                 IntervalSeconds = feed.Value.IntervalSeconds,
                 CreatedBy = feed.Value.CreatedBy,
                 CreatedAt = feed.Value.CreatedAt
@@ -180,19 +187,29 @@ internal sealed class StateStore
 
     private static RuntimeDocument ToRuntimeDocument(SubState state) => new()
     {
-        Feeds = state.Feeds.ToDictionary(
+        Targets = state.Targets.ToDictionary(
             feed => feed.Key,
-            feed => new PersistentFeedCheckpoint
+            feed => new PersistentTargetCheckpoint
             {
                 DisplayName = feed.Value.DisplayName,
-                FeedImageUrl = feed.Value.FeedImageUrl,
-                Generator = feed.Value.Generator,
-                LastSeenGuids = feed.Value.LastSeenGuids?.ToList() ?? [],
-                LastFetchAt = feed.Value.LastFetchAt,
+                SourceImageUrl = feed.Value.SourceImageUrl,
+                Metadata = new(feed.Value.Metadata, StringComparer.OrdinalIgnoreCase),
+                SeenUpdateIds = feed.Value.SeenUpdateIds?.ToList() ?? [],
+                LastCheckedAt = feed.Value.LastCheckedAt,
                 ETag = feed.Value.ETag,
                 LastModified = feed.Value.LastModified,
-                ConsecutiveFailures = feed.Value.ConsecutiveFailures
+                ConsecutiveFailures = feed.Value.ConsecutiveFailures,
+                ProviderState = new(feed.Value.ProviderState, StringComparer.Ordinal)
             }, StringComparer.OrdinalIgnoreCase),
         DeliveryReceipts = state.DeliveryReceipts
     };
+
+    private static Dictionary<string, string> MergeMetadata(IReadOnlyDictionary<string, string>? metadata, string? legacyGenerator)
+    {
+        var result = metadata is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(legacyGenerator)) result["generator"] = legacyGenerator;
+        return result;
+    }
 }

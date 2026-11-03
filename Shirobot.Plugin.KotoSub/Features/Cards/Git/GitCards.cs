@@ -16,9 +16,9 @@ internal sealed class GitCards(string id, string label, Func<Uri, bool> matches)
 
     public bool Matches(Uri uri) => matches(uri);
 
-    public string ResolveVariant(FeedSource feed, FeedItem item) => GitCardInfo.From(item).Variant;
+    public string ResolveVariant(SubscriptionTarget feed, UpdateEvent item) => GitCardInfo.From(item).Variant;
 
-    public Task<CardDataSupplement?> LoadDataAsync(FeedItem item, string variant, CancellationToken cancellationToken)
+    public Task<CardDataSupplement?> LoadDataAsync(UpdateEvent item, string variant, CancellationToken cancellationToken)
     {
         var info = GitCardInfo.From(item);
         return Task.FromResult<CardDataSupplement?>(new CardDataSupplement(

@@ -6,7 +6,7 @@ internal sealed record GitCardInfo(
     string? Repository,
     string? Reference)
 {
-    public static GitCardInfo From(FeedItem item)
+    public static GitCardInfo From(UpdateEvent item)
     {
         var path = Uri.TryCreate(item.Link, UriKind.Absolute, out var uri)
             ? uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries)
